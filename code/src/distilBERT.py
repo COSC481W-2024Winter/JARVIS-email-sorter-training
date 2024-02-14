@@ -1,7 +1,43 @@
+import logging
+import os
+import sys
+from datetime import datetime
+
 import numpy as np
 from datasets import load_dataset
 from sklearn.metrics import f1_score, precision_score, recall_score
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer
+
+# start logging
+
+log_filename = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.log")
+
+logging.basicConfig(filename=log_filename, level=logging.INFO,
+                    format='%(asctime)s:%(levelname)s:%(message)s')
+
+
+class StreamToLogger:
+    def __init__(self, logger, log_level=logging.INFO):
+        self.logger = logger
+        self.log_level = log_level
+        self.linebuf = ''
+
+    def write(self, buf):
+        for line in buf.rstrip().splitlines():
+            self.logger.log(self.log_level, line.rstrip())
+
+    def flush(self):
+        pass
+
+
+# Redirect stdout and stderr to log file
+stdout_logger = logging.getLogger('STDOUT')
+sl = StreamToLogger(stdout_logger, logging.INFO)
+sys.stdout = sl
+
+stderr_logger = logging.getLogger('STDERR')
+sl = StreamToLogger(stderr_logger, logging.ERROR)
+sys.stderr = sl
 
 # Define categories and their mapping to numerical labels
 categories = [
@@ -84,3 +120,10 @@ predicted_labels = np.argmax(predictions.predictions, axis=-1)
 # Display predictions and actual labels
 for pred, actual in zip(predicted_labels, predictions.label_ids):
     print(f"Predicted: '{id2label[pred]}', Actual: '{id2label[actual]}'")
+
+current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+save_directory = f"./model_{current_time}"
+os.makedirs(save_directory, exist_ok=True)
+model.save_pretrained(save_directory)
+tokenizer.save_pretrained(save_directory)
+print(f"Model and tokenizer saved in {save_directory}")
